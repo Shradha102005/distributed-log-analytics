@@ -41,16 +41,66 @@ def _serialize_row(row: dict) -> dict:
     return out
 
 
+_last_error: Optional[str] = None
+
+
+def _get_client():
+    from google.cloud import bigquery
+    import json
+
+    # 1. Direct JSON string from env var
+    creds_json = (os.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON") or "").strip()
+    if creds_json:
+        if (creds_json.startswith("'") and creds_json.endswith("'")) or \
+           (creds_json.startswith('"') and creds_json.endswith('"')):
+            creds_json = creds_json[1:-1].strip()
+        try:
+            info = json.loads(creds_json)
+            cred_type = info.get("type")
+            if cred_type == "service_account":
+                from google.oauth2 import service_account
+                credentials = service_account.Credentials.from_service_account_info(info)
+                return bigquery.Client(project=GCP_PROJECT or info.get("project_id"), credentials=credentials)
+            elif cred_type == "authorized_user":
+                from google.oauth2.credentials import Credentials as UserCredentials
+                credentials = UserCredentials.from_authorized_user_info(info)
+                return bigquery.Client(project=GCP_PROJECT or info.get("quota_project_id"), credentials=credentials)
+        except Exception as e:
+            logger.error("Failed to parse GOOGLE_APPLICATION_CREDENTIALS_JSON: %s", e)
+
+    # 2. File path in GOOGLE_APPLICATION_CREDENTIALS
+    creds_file = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+    if creds_file and os.path.exists(creds_file):
+        try:
+            with open(creds_file, "r") as f:
+                info = json.load(f)
+            cred_type = info.get("type")
+            if cred_type == "service_account":
+                from google.oauth2 import service_account
+                credentials = service_account.Credentials.from_service_account_info(info)
+                return bigquery.Client(project=GCP_PROJECT or info.get("project_id"), credentials=credentials)
+            elif cred_type == "authorized_user":
+                from google.oauth2.credentials import Credentials as UserCredentials
+                credentials = UserCredentials.from_authorized_user_info(info)
+                return bigquery.Client(project=GCP_PROJECT or info.get("quota_project_id"), credentials=credentials)
+        except Exception as e:
+            logger.error("Failed to read GOOGLE_APPLICATION_CREDENTIALS file: %s", e)
+
+    # 3. Standard fallback (ADC / metadata service)
+    return bigquery.Client(project=GCP_PROJECT)
+
+
 def _query(sql: str, params: list = None) -> list[dict]:
+    global _last_error
     try:
         from google.cloud import bigquery
     except ImportError:
-        logger.error("google-cloud-bigquery not installed. Run: pip install google-cloud-bigquery")
+        _last_error = "google-cloud-bigquery not installed"
+        logger.error(_last_error)
         return []
     try:
-        client = bigquery.Client(project=GCP_PROJECT)
+        client = _get_client()
         if params:
-            # Use positional query parameters
             job_config = bigquery.QueryJobConfig(
                 query_parameters=[
                     bigquery.ScalarQueryParameter(None, "STRING", p) for p in params
@@ -59,8 +109,10 @@ def _query(sql: str, params: list = None) -> list[dict]:
             df = client.query(sql, job_config=job_config).to_dataframe()
         else:
             df = client.query(sql).to_dataframe()
+        _last_error = None
         return [_serialize_row(r) for r in df.to_dict(orient="records")]
     except Exception as exc:
+        _last_error = str(exc)
         logger.error("BigQuery query failed: %s\nSQL: %s", exc, sql)
         return []
 

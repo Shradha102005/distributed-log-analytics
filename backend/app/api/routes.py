@@ -63,6 +63,20 @@ def health():
     )
 
 
+@router.get("/diag", tags=["health"])
+def diag():
+    last_err = getattr(svc, "_last_error", None)
+    return {
+        "use_bq": _USE_BQ,
+        "gcp_project": os.getenv("GCP_PROJECT"),
+        "bq_dataset": os.getenv("BQ_DATASET"),
+        "has_creds_json": bool(os.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON")),
+        "creds_json_length": len(os.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON", "")),
+        "creds_file": os.getenv("GOOGLE_APPLICATION_CREDENTIALS"),
+        "last_bq_error": last_err,
+    }
+
+
 # ── Summary ───────────────────────────────────────────────────────────────────
 
 @router.get("/summary", response_model=SummaryResponse, tags=["analytics"])
