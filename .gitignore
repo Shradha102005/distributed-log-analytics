@@ -42,8 +42,12 @@ Thumbs.db
 *.log
 logs/
 
-# AWS / Secrets
+# Secrets / Credentials
 .env.local
 *.pem
 *.key
 credentials
+*.json.key
+gcp-key*.json
+service-account*.json
+*-credentials.json

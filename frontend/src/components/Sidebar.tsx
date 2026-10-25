@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import UploadModal from './UploadModal';
 import {
   LayoutDashboard, ScrollText, AlertTriangle,
-  BarChart3, Target, Activity, Upload
+  BarChart3, Target, Activity
 } from 'lucide-react';
 
 interface NavItem {
@@ -23,7 +22,6 @@ const navItems: NavItem[] = [
 export default function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const [showUpload, setShowUpload] = useState(false);
 
   return (
     <aside className="sidebar">
@@ -58,21 +56,6 @@ export default function Sidebar() {
           );
         })}
       </nav>
-
-      {/* Upload Button */}
-      <div className="sidebar-action-container">
-        <button
-          id="btn-upload-logs"
-          className="btn-upload-apple"
-          onClick={() => setShowUpload(true)}
-        >
-          <Upload size={15} strokeWidth={2} />
-          <span>Upload Logs</span>
-        </button>
-      </div>
-
-      {/* Upload Modal */}
-      {showUpload && <UploadModal onClose={() => setShowUpload(false)} />}
     </aside>
   );
 }
