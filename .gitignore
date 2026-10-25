@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+.env
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+
+# Data & outputs (large files)
+data/raw/
+data/*.log
+data/*.gz
+outputs/parquet/
+outputs/anomalies/
+outputs/metrics/
+
+# Node / React
+node_modules/
+dist/
+.next/
+frontend/dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# AWS / Secrets
+.env.local
+*.pem
+*.key
+credentials
