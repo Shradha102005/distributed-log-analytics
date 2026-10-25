@@ -157,7 +157,7 @@ def main():
             logs_parquet=f"{output_base}/logs",
             trends_parquet=f"{output_base}/stats/trends",
             events_parquet=f"{output_base}/stats/events",
-            output_base=str(cfg.OUTPUT_DIR),
+            output_base=str(Path(output_base).parent),  # follow --output arg
             label_csv_path=label_csv_spark_path,
             z_threshold=cfg.ERROR_SPIKE_THRESHOLD,
             rare_threshold=cfg.RARE_EVENT_THRESHOLD,

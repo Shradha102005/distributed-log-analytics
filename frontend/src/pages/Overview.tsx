@@ -6,10 +6,10 @@ import {
 } from 'recharts';
 import {
   Database, AlertCircle, AlertTriangle, CheckCircle2,
-  Activity, ArrowUpRight, CheckCircle, BarChart2, TrendingUp, Layers
+  Activity, BarChart2, TrendingUp, Layers
 } from 'lucide-react';
 import { useFetch } from '../hooks/useFetch';
-import { getSummary, getTrends, getHealth } from '../services/api';
+import { getSummary, getTrends } from '../services/api';
 import { Skeleton, EmptyState, ErrorBanner, SegmentedControl } from '../components/ui';
 
 const COLORS = {
@@ -37,7 +37,7 @@ const AppleCustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
   return (
     <div className="apple-tooltip">
       <div className="apple-tooltip-title">
-        Time Window: {label}
+        {label}
       </div>
       {payload.map((p) => (
         <div key={p.dataKey} className="apple-tooltip-row">
@@ -56,7 +56,6 @@ const AppleCustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
 
 export default function Overview() {
   const navigate = useNavigate();
-  const { data: health, loading: hLoading } = useFetch(getHealth, []);
   const { data: summary, loading: sLoading, error: sError, refetch: sRefetch } = useFetch(getSummary, []);
   const { data: trends, loading: tLoading, error: tError } = useFetch(getTrends, []);
 
@@ -86,56 +85,30 @@ export default function Overview() {
     ? ((summary.parsed_ok / summary.total_records) * 100).toFixed(1)
     : '100.0';
 
+  const errorRate = summary?.total_records && summary?.error_count
+    ? ((summary.error_count / summary.total_records) * 100).toFixed(1)
+    : '0.0';
+
   return (
-    <div className="page">
-      {/* Apple-style Hero Title */}
+    <div className="page page-animated">
+      {/* Apple-style Page Title */}
       <div className="page-header">
         <h1 className="page-title">Cluster Overview</h1>
         <p className="page-subtitle">
-          Real-time distributed telemetry, parsing integrity, and temporal anomaly patterns across the LogHub HDFS cluster.
+          Real-time metrics, anomaly patterns, and stream health across your HDFS cluster.
         </p>
       </div>
 
-      {/* Pipeline Health Alert (Apple Style) */}
-      {!hLoading && health && (
-        <div
-          className="alert alert-info"
-          style={{
-            background: 'var(--accent-blue-tint)',
-            border: '1px solid rgba(0, 113, 227, 0.15)',
-            borderRadius: '16px',
-            boxShadow: 'var(--shadow-subtle)',
-          }}
-        >
-          <CheckCircle size={18} color="var(--accent-blue)" style={{ flexShrink: 0, marginTop: 2 }} />
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-            <div>
-              <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Parquet Data Layer Synchronized: </span>
-              <span style={{ color: 'var(--text-secondary)' }}>
-                {health.parquet_stats_ready
-                  ? 'Processed PySpark datasets active. Sub-millisecond DuckDB columnar query engine online.'
-                  : 'Sample data loaded. Run pipeline for full cluster aggregation.'}
-              </span>
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <span className="code-pill">PySpark 3.5.3</span>
-              <span className="code-pill">DuckDB Engine</span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Interactive Stat Cards */}
       {sError && <ErrorBanner message={sError} onRetry={sRefetch} />}
+
+      {/* Apple-style Metric Cards */}
       <div className="stats-grid">
-        <div className="stat-card" onClick={() => navigate('/logs')}>
-          <div className="stat-top">
-            <div className="stat-icon" style={{ background: 'var(--accent-blue-tint)', color: 'var(--accent-blue)' }}>
-              <Database size={22} />
-            </div>
-            <div className="stat-pill" style={{ background: 'var(--accent-blue-tint)', color: 'var(--accent-blue)' }}>
-              <span>Live Dataset</span>
-              <ArrowUpRight size={12} />
+        {/* Card 1: Total Records */}
+        <div className="stat-card" onClick={() => navigate('/logs')} role="button" tabIndex={0}>
+          <div className="stat-header">
+            <span className="stat-title">Total Records</span>
+            <div className="stat-icon-wrapper blue">
+              <Database size={16} strokeWidth={2} />
             </div>
           </div>
           {sLoading ? (
@@ -143,87 +116,73 @@ export default function Overview() {
           ) : (
             <div>
               <div className="stat-value">{summary?.total_records?.toLocaleString() ?? '—'}</div>
-              <div className="stat-label">
-                <span>Total Processed Records</span>
-              </div>
+              <div className="stat-caption">Parsed HDFS events</div>
             </div>
           )}
         </div>
 
-        <div className="stat-card" onClick={() => navigate('/anomalies')}>
-          <div className="stat-top">
-            <div className="stat-icon" style={{ background: 'var(--accent-red-tint)', color: 'var(--accent-red)' }}>
-              <AlertCircle size={22} />
-            </div>
-            <div className="stat-pill" style={{ background: 'var(--accent-red-tint)', color: 'var(--accent-red)' }}>
-              <span>Anomalies</span>
-              <ArrowUpRight size={12} />
+        {/* Card 2: Error Records */}
+        <div className="stat-card" onClick={() => navigate('/anomalies')} role="button" tabIndex={0}>
+          <div className="stat-header">
+            <span className="stat-title">Error Logs</span>
+            <div className="stat-icon-wrapper red">
+              <AlertCircle size={16} strokeWidth={2} />
             </div>
           </div>
           {sLoading ? (
             <Skeleton type="text" />
           ) : (
             <div>
-              <div className="stat-value" style={{ color: summary?.error_count ? 'var(--accent-red)' : 'inherit' }}>
+              <div className="stat-value text-red">
                 {summary?.error_count?.toLocaleString() ?? '0'}
               </div>
-              <div className="stat-label">
-                <span>Error Log Records</span>
-              </div>
+              <div className="stat-caption">{errorRate}% cluster error rate</div>
             </div>
           )}
         </div>
 
-        <div className="stat-card" onClick={() => navigate('/logs')}>
-          <div className="stat-top">
-            <div className="stat-icon" style={{ background: 'var(--accent-yellow-tint)', color: 'var(--accent-yellow-text)' }}>
-              <AlertTriangle size={22} />
-            </div>
-            <div className="stat-pill" style={{ background: 'var(--accent-yellow-tint)', color: 'var(--accent-yellow-text)' }}>
-              <span>Attention</span>
-              <ArrowUpRight size={12} />
+        {/* Card 3: Warning Events */}
+        <div className="stat-card" onClick={() => navigate('/logs')} role="button" tabIndex={0}>
+          <div className="stat-header">
+            <span className="stat-title">Warning Events</span>
+            <div className="stat-icon-wrapper orange">
+              <AlertTriangle size={16} strokeWidth={2} />
             </div>
           </div>
           {sLoading ? (
             <Skeleton type="text" />
           ) : (
             <div>
-              <div className="stat-value">{summary?.warn_count?.toLocaleString() ?? '0'}</div>
-              <div className="stat-label">
-                <span>Warning Events</span>
-              </div>
+              <div className="stat-value text-orange">{summary?.warn_count?.toLocaleString() ?? '0'}</div>
+              <div className="stat-caption">Non-critical notices</div>
             </div>
           )}
         </div>
 
-        <div className="stat-card">
-          <div className="stat-top">
-            <div className="stat-icon" style={{ background: 'var(--accent-green-tint)', color: 'var(--accent-green-text)' }}>
-              <CheckCircle2 size={22} />
-            </div>
-            <div className="stat-pill" style={{ background: 'var(--accent-green-tint)', color: 'var(--accent-green-text)' }}>
-              <span>{parseRate}% Pass</span>
+        {/* Card 4: Schema Validated */}
+        <div className="stat-card" role="button" tabIndex={0}>
+          <div className="stat-header">
+            <span className="stat-title">Schema Integrity</span>
+            <div className="stat-icon-wrapper green">
+              <CheckCircle2 size={16} strokeWidth={2} />
             </div>
           </div>
           {sLoading ? (
             <Skeleton type="text" />
           ) : (
             <div>
-              <div className="stat-value">{summary?.parsed_ok?.toLocaleString() ?? '—'}</div>
-              <div className="stat-label">
-                <span>Schema Validated Logs</span>
-              </div>
+              <div className="stat-value text-green">{parseRate}%</div>
+              <div className="stat-caption">{summary?.parsed_ok?.toLocaleString() ?? '—'} valid records</div>
             </div>
           )}
         </div>
 
-        <div className="stat-card">
-          <div className="stat-top">
-            <div className="stat-icon" style={{ background: 'var(--accent-purple-tint)', color: 'var(--accent-purple-text)' }}>
-              <Activity size={22} />
-            </div>
-            <div className="stat-pill" style={{ background: 'var(--bg-surface)', color: 'var(--text-muted)' }}>
-              <span>0.0% Loss</span>
+        {/* Card 5: Parse Failures */}
+        <div className="stat-card" role="button" tabIndex={0}>
+          <div className="stat-header">
+            <span className="stat-title">Parse Failures</span>
+            <div className="stat-icon-wrapper purple">
+              <Activity size={16} strokeWidth={2} />
             </div>
           </div>
           {sLoading ? (
@@ -231,9 +190,7 @@ export default function Overview() {
           ) : (
             <div>
               <div className="stat-value">{summary?.parse_failed?.toLocaleString() ?? '0'}</div>
-              <div className="stat-label">
-                <span>Regex Parse Failures</span>
-              </div>
+              <div className="stat-caption">Zero syntax dropouts</div>
             </div>
           )}
         </div>
@@ -241,12 +198,12 @@ export default function Overview() {
 
       {/* Interactive Charts Section */}
       <div className="charts-grid">
-        {/* Time-Series Trend Card with Segmented Controls */}
+        {/* Time-Series Trend Card */}
         <div className="card">
           <div className="card-header">
             <div>
               <div className="card-title">
-                <TrendingUp size={18} color="var(--accent-blue)" />
+                <TrendingUp size={18} color="var(--accent-blue)" strokeWidth={2} />
                 <span>Log Volume & Activity Trends</span>
               </div>
               <div className="card-subtitle">
@@ -255,7 +212,7 @@ export default function Overview() {
             </div>
 
             {/* Apple Segmented Controls */}
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <div className="card-controls">
               <SegmentedControl
                 value={filterMode}
                 onChange={setFilterMode}
@@ -269,8 +226,8 @@ export default function Overview() {
                 value={chartType}
                 onChange={setChartType}
                 options={[
-                  { value: 'area', label: 'Area', icon: <TrendingUp size={12} /> },
-                  { value: 'bar', label: 'Column', icon: <BarChart2 size={12} /> },
+                  { value: 'area', label: 'Area', icon: <TrendingUp size={12} strokeWidth={2} /> },
+                  { value: 'bar', label: 'Column', icon: <BarChart2 size={12} strokeWidth={2} /> },
                 ]}
               />
             </div>
@@ -281,7 +238,11 @@ export default function Overview() {
           ) : tError ? (
             <ErrorBanner message={tError} />
           ) : chartData.length === 0 ? (
-            <EmptyState icon="📈" title="No Trend Data" text="Run the pipeline to generate time-series metrics." />
+            <EmptyState
+              icon={<TrendingUp size={36} strokeWidth={1.5} color="var(--text-dim)" />}
+              title="No Trend Data"
+              text="Run the pipeline to generate time-series metrics."
+            />
           ) : (
             <div className="chart-container">
               <ResponsiveContainer width="100%" height="100%">
@@ -289,19 +250,19 @@ export default function Overview() {
                   <AreaChart data={chartData} margin={{ top: 10, right: 15, left: 0, bottom: 5 }}>
                     <defs>
                       <linearGradient id="appleBlueGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={COLORS.total} stopOpacity={0.25} />
+                        <stop offset="5%" stopColor={COLORS.total} stopOpacity={0.18} />
                         <stop offset="95%" stopColor={COLORS.total} stopOpacity={0.0} />
                       </linearGradient>
                       <linearGradient id="appleRedGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={COLORS.errors} stopOpacity={0.35} />
+                        <stop offset="5%" stopColor={COLORS.errors} stopOpacity={0.22} />
                         <stop offset="95%" stopColor={COLORS.errors} stopOpacity={0.0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f5" vertical={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f4" vertical={false} />
                     <XAxis
                       dataKey="label"
                       tick={{ fill: '#86868b', fontSize: 12, fontFamily: 'Inter' }}
-                      axisLine={{ stroke: '#e5e5ea' }}
+                      axisLine={{ stroke: 'rgba(0,0,0,0.06)' }}
                       tickLine={false}
                     />
                     <YAxis
@@ -319,7 +280,7 @@ export default function Overview() {
                         name="Total Logs"
                         stroke={COLORS.total}
                         fill="url(#appleBlueGradient)"
-                        strokeWidth={2.5}
+                        strokeWidth={2}
                       />
                     )}
                     {(filterMode === 'all' || filterMode === 'errors') && (
@@ -329,7 +290,7 @@ export default function Overview() {
                         name="Errors"
                         stroke={COLORS.errors}
                         fill="url(#appleRedGradient)"
-                        strokeWidth={2.5}
+                        strokeWidth={2}
                       />
                     )}
                     {filterMode === 'all' && (
@@ -339,18 +300,18 @@ export default function Overview() {
                         name="Warnings"
                         stroke={COLORS.warnings}
                         fill="none"
-                        strokeWidth={2}
+                        strokeWidth={1.8}
                         strokeDasharray="4 3"
                       />
                     )}
                   </AreaChart>
                 ) : (
                   <BarChart data={chartData} margin={{ top: 10, right: 15, left: 0, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f5" vertical={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f4" vertical={false} />
                     <XAxis
                       dataKey="label"
                       tick={{ fill: '#86868b', fontSize: 12 }}
-                      axisLine={{ stroke: '#e5e5ea' }}
+                      axisLine={{ stroke: 'rgba(0,0,0,0.06)' }}
                       tickLine={false}
                     />
                     <YAxis
@@ -382,8 +343,8 @@ export default function Overview() {
           <div className="card-header">
             <div>
               <div className="card-title">
-                <Layers size={18} color="var(--accent-purple)" />
-                <span>Log Severity Distribution</span>
+                <Layers size={18} color="var(--accent-purple)" strokeWidth={2} />
+                <span>Severity Distribution</span>
               </div>
               <div className="card-subtitle">
                 Proportional breakdown of log event severities
@@ -394,64 +355,54 @@ export default function Overview() {
           {sLoading ? (
             <Skeleton type="chart" />
           ) : pieData.length === 0 ? (
-            <EmptyState icon="🥧" title="No Severity Data" text="Run the processing pipeline to see severity distributions." />
+            <EmptyState
+              icon={<Layers size={36} strokeWidth={1.5} color="var(--text-dim)" />}
+              title="No Severity Data"
+              text="Run the processing pipeline to see severity distributions."
+            />
           ) : (
-            <div className="chart-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <ResponsiveContainer width="55%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={68}
-                    outerRadius={105}
-                    paddingAngle={4}
-                    dataKey="value"
-                    nameKey="name"
-                    stroke="#ffffff"
-                    strokeWidth={2}
-                  >
-                    {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(v: unknown) =>
-                      typeof v === 'number' ? `${v.toLocaleString()} logs` : String(v ?? '')
-                    }
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+            <div className="donut-chart-layout">
+              <div className="donut-chart-container">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={68}
+                      outerRadius={105}
+                      paddingAngle={4}
+                      dataKey="value"
+                      nameKey="name"
+                      stroke="#ffffff"
+                      strokeWidth={3}
+                    >
+                      {pieData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(v: unknown) =>
+                        typeof v === 'number' ? `${v.toLocaleString()} logs` : String(v ?? '')
+                      }
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingLeft: 24, flex: 1 }}>
+              <div className="donut-legend-container">
                 {pieData.map((d) => {
                   const total = summary?.total_records || 1;
                   const pct = ((d.value / total) * 100).toFixed(1);
                   return (
-                    <div
-                      key={d.name}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '8px 12px',
-                        background: 'var(--bg-surface)',
-                        borderRadius: '10px',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: d.color }} />
-                        <span style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                          {d.name}
-                        </span>
+                    <div key={d.name} className="donut-legend-item">
+                      <div className="donut-legend-left">
+                        <div className="donut-legend-dot" style={{ background: d.color }} />
+                        <span className="donut-legend-name">{d.name}</span>
                       </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: '0.85rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
-                          {d.value.toLocaleString()}
-                        </div>
-                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                          {pct}%
-                        </div>
+                      <div className="donut-legend-right">
+                        <span className="donut-legend-val">{d.value.toLocaleString()}</span>
+                        <span className="donut-legend-pct">{pct}%</span>
                       </div>
                     </div>
                   );

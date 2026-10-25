@@ -5,8 +5,7 @@ import {
   PolarAngleAxis, PolarRadiusAxis, Legend
 } from 'recharts';
 import {
-  Layers, Package, Sparkles, Search, Copy, Check,
-  SlidersHorizontal, Filter, AlertCircle
+  Package, Search, SlidersHorizontal, Layers
 } from 'lucide-react';
 import { useFetch } from '../hooks/useFetch';
 import { getComponents, getEvents } from '../services/api';
@@ -82,9 +81,9 @@ export default function Analytics() {
     : rawEvents;
 
   return (
-    <div className="page">
+    <div className="page page-animated">
       <div className="page-header">
-        <h1 className="page-title">Component & Event Analytics</h1>
+        <h1 className="page-title">Component Analytics</h1>
         <p className="page-subtitle">
           Decompose failures across HDFS subsystem modules, daemon threads, and frequent regex event clusters.
         </p>
@@ -95,7 +94,7 @@ export default function Analytics() {
         <div className="card-header" style={{ flexWrap: 'wrap', gap: 14 }}>
           <div>
             <div className="card-title">
-              <Package size={18} color="var(--accent-blue)" />
+              <Package size={18} color="var(--accent-blue)" strokeWidth={2} />
               <span>Subsystem Component Rankings</span>
             </div>
             <div className="card-subtitle">
@@ -134,16 +133,20 @@ export default function Analytics() {
         ) : cError ? (
           <ErrorBanner message={cError} onRetry={cRefetch} />
         ) : compChartData.length === 0 ? (
-          <EmptyState icon="📦" title="No Component Data Found" text="Try clearing your search or running the pipeline." />
+          <EmptyState
+            icon={<Package size={38} strokeWidth={1.5} color="var(--text-dim)" />}
+            title="No Component Data Found"
+            text="Try clearing your search or running the pipeline."
+          />
         ) : (
           <div className="chart-container" style={{ height: 380 }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={compChartData} layout="vertical" margin={{ left: 30, right: 25, top: 10, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f5" horizontal={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f4" horizontal={false} />
                 <XAxis
                   type="number"
                   tick={{ fill: '#86868b', fontSize: 12 }}
-                  axisLine={{ stroke: '#e5e5ea' }}
+                  axisLine={{ stroke: 'rgba(0,0,0,0.06)' }}
                   tickLine={false}
                 />
                 <YAxis
@@ -172,7 +175,7 @@ export default function Analytics() {
           <div className="card-header">
             <div>
               <div className="card-title">
-                <SlidersHorizontal size={18} color="var(--accent-purple)" />
+                <SlidersHorizontal size={18} color="var(--accent-purple)" strokeWidth={2} />
                 <span>Error vs Warning Radar Profile</span>
               </div>
               <div className="card-subtitle">
@@ -184,7 +187,11 @@ export default function Analytics() {
           {cLoading ? (
             <Skeleton type="chart" />
           ) : radarData.length === 0 ? (
-            <EmptyState icon="🕸️" title="No Radar Profile" text="Pipeline dataset needed." />
+            <EmptyState
+              icon={<SlidersHorizontal size={38} strokeWidth={1.5} color="var(--text-dim)" />}
+              title="No Radar Profile"
+              text="Pipeline dataset needed."
+            />
           ) : (
             <div className="chart-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <ResponsiveContainer width="100%" height="100%">
@@ -207,7 +214,7 @@ export default function Analytics() {
           <div className="card-header" style={{ flexWrap: 'wrap', gap: 10 }}>
             <div>
               <div className="card-title">
-                <Sparkles size={18} color="var(--accent-blue)" />
+                <Layers size={18} color="var(--accent-blue)" strokeWidth={2} />
                 <span>Event Pattern Clusters</span>
               </div>
               <div className="card-subtitle">
@@ -248,7 +255,11 @@ export default function Analytics() {
           {eLoading ? (
             <Skeleton type="chart" />
           ) : filteredEvents.length === 0 ? (
-            <EmptyState icon="⚡" title="No Patterns Found" text="No event templates match your filter." />
+            <EmptyState
+              icon={<Layers size={38} strokeWidth={1.5} color="var(--text-dim)" />}
+              title="No Patterns Found"
+              text="No event templates match your filter."
+            />
           ) : (
             <div style={{ maxHeight: 290, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, paddingRight: 4 }}>
               {filteredEvents.map((ev, i) => (

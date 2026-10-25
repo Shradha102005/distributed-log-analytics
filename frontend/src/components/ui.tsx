@@ -28,7 +28,7 @@ export function Skeleton({ type = 'text', count = 1, style }: SkeletonProps) {
 }
 
 interface EmptyStateProps {
-  icon?: string;
+  icon?: React.ReactNode;
   title: string;
   text: string;
   action?: {
@@ -37,17 +37,17 @@ interface EmptyStateProps {
   };
 }
 
-export function EmptyState({ icon = '📭', title, text, action }: EmptyStateProps) {
+export function EmptyState({ icon, title, text, action }: EmptyStateProps) {
   return (
     <div className="empty-state">
-      <div className="empty-state-icon">{icon}</div>
+      {icon && <div className="empty-state-icon-container">{icon}</div>}
       <div className="empty-state-title">{title}</div>
       <div className="empty-state-text">{text}</div>
       {action && (
         <button
           className="btn btn-primary"
           onClick={action.onClick}
-          style={{ marginTop: 18 }}
+          style={{ marginTop: 16 }}
         >
           {action.label}
         </button>

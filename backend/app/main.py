@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .core.config import settings
 from .api.routes import router
+from .api.pipeline_routes import router as pipeline_router
 
 app = FastAPI(
     title="Distributed Log Analytics API",
@@ -28,6 +29,7 @@ app.add_middleware(
 )
 
 app.include_router(router)
+app.include_router(pipeline_router)
 
 
 @app.get("/", tags=["root"])

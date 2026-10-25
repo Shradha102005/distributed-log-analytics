@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  AlertTriangle, Activity, Search, X, CheckCircle,
-  HelpCircle, Eye, ShieldAlert, Sparkles
+  AlertTriangle, Search, X, Eye, ShieldAlert
 } from 'lucide-react';
 import { getAnomalies, AnomalyRecord } from '../services/api';
 import { Skeleton, EmptyState, ErrorBanner, AnomalyBadge, Pagination, CopyButton, SegmentedControl } from '../components/ui';
@@ -56,36 +55,12 @@ export default function Anomalies() {
     : records;
 
   return (
-    <div className="page">
+    <div className="page page-animated">
       <div className="page-header">
-        <h1 className="page-title">Anomaly Intelligence</h1>
+        <h1 className="page-title">Anomaly Detection</h1>
         <p className="page-subtitle">
-          Statistical 3σ error spike detection and block-level HDFS failure classification compared against ground truth.
+          Statistical 3σ error spikes and block-level HDFS failure classification compared against ground truth.
         </p>
-      </div>
-
-      {/* Apple Info Guide Banner */}
-      <div
-        className="alert"
-        style={{
-          background: 'var(--bg-card)',
-          border: '1px solid var(--border)',
-          borderRadius: '18px',
-          boxShadow: 'var(--shadow-subtle)',
-          padding: '18px 22px',
-        }}
-      >
-        <Sparkles size={20} color="var(--accent-blue)" style={{ flexShrink: 0, marginTop: 2 }} />
-        <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>
-            Dual-Layer Anomaly Detection Model
-          </div>
-          <div style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-            <strong>1. Hourly Error Spikes:</strong> Calculates rolling Z-score across 1-hour temporal bins. Flags intervals exceeding <strong>3.0σ</strong> above baseline.
-            <br />
-            <strong>2. HDFS Block Sessions:</strong> Correlates all log operations tied to each unique <code className="code-pill">blk_*</code> ID. Identifies abnormal block lifecycles and validates with <code className="code-pill">anomaly_label.csv</code>.
-          </div>
-        </div>
       </div>
 
       {/* Filter and Switcher Controls */}
@@ -105,26 +80,20 @@ export default function Anomalies() {
         />
 
         {/* Ground Truth Filter */}
-        <div className="segmented-control">
-          <button
-            className={`segment-btn ${gtConfirmed === undefined ? 'active' : ''}`}
-            onClick={() => { setGtConfirmed(undefined); setPage(1); }}
-          >
-            All GT
-          </button>
-          <button
-            className={`segment-btn ${gtConfirmed === true ? 'active' : ''}`}
-            onClick={() => { setGtConfirmed(true); setPage(1); }}
-          >
-            Verified Anomaly
-          </button>
-          <button
-            className={`segment-btn ${gtConfirmed === false ? 'active' : ''}`}
-            onClick={() => { setGtConfirmed(false); setPage(1); }}
-          >
-            False Positives
-          </button>
-        </div>
+        <SegmentedControl
+          value={gtConfirmed === undefined ? 'all' : gtConfirmed ? 'verified' : 'fp'}
+          onChange={(val) => {
+            if (val === 'all') setGtConfirmed(undefined);
+            else if (val === 'verified') setGtConfirmed(true);
+            else setGtConfirmed(false);
+            setPage(1);
+          }}
+          options={[
+            { value: 'all', label: 'All GT' },
+            { value: 'verified', label: 'Verified Anomaly' },
+            { value: 'fp', label: 'False Positives' },
+          ]}
+        />
 
         {/* Search Block ID */}
         <div className="search-input-wrapper" style={{ flex: 1, maxWidth: 320 }}>
@@ -152,11 +121,25 @@ export default function Anomalies() {
             </button>
           )}
         </div>
+
+        {(typeFilter !== 'all' || gtConfirmed !== undefined || searchBlock) && (
+          <button
+            className="btn btn-ghost"
+            onClick={() => {
+              setTypeFilter('all');
+              setGtConfirmed(undefined);
+              setSearchBlock('');
+              setPage(1);
+            }}
+          >
+            Reset Filters
+          </button>
+        )}
       </div>
 
       {error && <ErrorBanner message={error} onRetry={() => setPage((p) => p)} />}
 
-      {/* Main Anomalies Table */}
+      {/* Anomalies Table */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div className="table-wrapper">
           <table className="data-table">
@@ -165,11 +148,11 @@ export default function Anomalies() {
                 <th style={{ width: 130 }}>Classification</th>
                 <th style={{ width: 220 }}>Identifier / Timestamp</th>
                 <th style={{ width: 100 }}>Hour</th>
-                <th style={{ width: 110 }}>Errors</th>
-                <th style={{ width: 140 }}>Metric / Z-Score</th>
-                <th style={{ width: 130 }}>Model Prediction</th>
-                <th style={{ width: 130 }}>Ground Truth</th>
-                <th style={{ width: 80, textAlign: 'center' }}>Details</th>
+                <th style={{ width: 100 }}>Errors</th>
+                <th style={{ width: 160 }}>Metric / Z-Score</th>
+                <th style={{ width: 150 }}>Model Prediction</th>
+                <th style={{ width: 150 }}>Ground Truth</th>
+                <th style={{ width: 90, textAlign: 'center' }}>Inspect</th>
               </tr>
             </thead>
             <tbody>
@@ -187,11 +170,11 @@ export default function Anomalies() {
                 <tr>
                   <td colSpan={8}>
                     <EmptyState
-                      icon="🛡️"
-                      title="No Anomalies Match Criteria"
-                      text="No anomalies were detected matching your current filters. Try selecting 'All Anomalies' or resetting your filters."
+                      icon={<ShieldAlert size={38} strokeWidth={1.5} color="var(--text-dim)" />}
+                      title="No Anomalies Match Filters"
+                      text="No records matched your current classification criteria or search query."
                       action={{
-                        label: 'Show All Anomalies',
+                        label: 'Reset Filters',
                         onClick: () => {
                           setTypeFilter('all');
                           setGtConfirmed(undefined);
@@ -203,84 +186,96 @@ export default function Anomalies() {
                   </td>
                 </tr>
               ) : (
-                displayedRecords.map((rec, i) => (
+                displayedRecords.map((r, i) => (
                   <tr
-                    key={i}
-                    onClick={() => setInspectRecord(rec)}
-                    title="Click to view detailed diagnostics"
+                    key={r.block_id || `${r.date_parsed}-${r.hour}-${i}`}
+                    onClick={() => setInspectRecord(r)}
                   >
                     <td>
-                      <AnomalyBadge type={rec.anomaly_type ?? 'anomaly'} />
+                      <AnomalyBadge type={r.anomaly_type ?? 'anomaly'} />
                     </td>
+
                     <td>
-                      {rec.anomaly_type === 'spike' ? (
-                        <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                          {rec.date_parsed ?? '—'}
-                        </span>
-                      ) : (
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                          <span className="code-pill mono" style={{ fontSize: '0.78rem' }}>
-                            {rec.block_id ? (rec.block_id.length > 18 ? rec.block_id.slice(0, 16) + '…' : rec.block_id) : '—'}
+                      {r.block_id ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span className="mono" style={{ fontSize: '0.82rem', fontWeight: 600 }}>
+                            {r.block_id.length > 20 ? `${r.block_id.slice(0, 20)}…` : r.block_id}
                           </span>
-                          {rec.block_id && <CopyButton text={rec.block_id} />}
+                          <CopyButton text={r.block_id} />
                         </div>
+                      ) : (
+                        <span className="mono" style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                          {r.date_parsed ?? '—'}
+                        </span>
                       )}
                     </td>
-                    <td style={{ color: 'var(--text-secondary)' }}>
-                      {rec.hour != null ? `${rec.hour.toString().padStart(2, '0')}:00` : '—'}
+
+                    <td style={{ color: 'var(--text-muted)' }}>
+                      {r.hour != null ? `${r.hour.toString().padStart(2, '0')}:00` : '—'}
                     </td>
+
                     <td>
                       <span
                         style={{
                           fontWeight: 700,
-                          color: (rec.errors || rec.error_count) ? 'var(--accent-red)' : 'var(--text-primary)',
+                          color: (r.errors ?? r.error_count ?? 0) > 0 ? 'var(--accent-red-text)' : 'inherit',
+                          fontVariantNumeric: 'tabular-nums',
                         }}
                       >
-                        {rec.errors ?? rec.error_count ?? 0}
+                        {r.errors ?? r.error_count ?? 0}
                       </span>
                     </td>
+
                     <td>
-                      {rec.z_score != null ? (
-                        <span className="mono" style={{ fontWeight: 600, color: rec.z_score > 3 ? 'var(--accent-red)' : 'var(--text-primary)' }}>
-                          {rec.z_score.toFixed(2)}σ
+                      {r.z_score != null ? (
+                        <span
+                          className="code-pill mono"
+                          style={{
+                            color: 'var(--accent-red-text)',
+                            background: 'var(--accent-red-tint)',
+                            borderColor: 'rgba(255, 59, 48, 0.2)',
+                          }}
+                        >
+                          {r.z_score.toFixed(2)}σ
                         </span>
-                      ) : rec.total_count != null ? (
+                      ) : r.total_count != null ? (
                         <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                          {rec.total_count} total logs
+                          {r.total_count} total logs
                         </span>
                       ) : (
                         '—'
                       )}
                     </td>
+
                     <td>
-                      <span
-                        className="badge"
-                        style={{
-                          background: rec.predicted_label === 'Anomaly' ? 'var(--accent-red-tint)' : 'var(--accent-green-tint)',
-                          color: rec.predicted_label === 'Anomaly' ? 'var(--accent-red-text)' : 'var(--accent-green-text)',
-                        }}
-                      >
-                        {rec.predicted_label ?? (rec.is_spike ? 'Spike' : 'Normal')}
+                      <span className="badge badge-error">
+                        {r.predicted_label ?? 'Anomaly'}
                       </span>
                     </td>
+
                     <td>
-                      {rec.gt_label ? (
-                        <span
-                          className="badge"
-                          style={{
-                            background: rec.gt_label === 'Anomaly' ? 'var(--accent-red-tint)' : 'var(--accent-green-tint)',
-                            color: rec.gt_label === 'Anomaly' ? 'var(--accent-red-text)' : 'var(--accent-green-text)',
-                          }}
-                        >
-                          {rec.gt_label}
-                        </span>
+                      {r.gt_label ? (
+                        r.gt_label === 'Anomaly' ? (
+                          <span className="badge badge-normal">Verified Anomaly</span>
+                        ) : (
+                          <span className="badge badge-warn">Normal (FP)</span>
+                        )
                       ) : (
-                        <span style={{ color: 'var(--text-dim)', fontSize: '0.78rem' }}>Unlabeled</span>
+                        <span style={{ color: 'var(--text-dim)', fontSize: '0.8rem' }}>Unlabeled</span>
                       )}
                     </td>
+
                     <td style={{ textAlign: 'center' }}>
-                      <button className="btn btn-ghost" style={{ padding: '4px' }}>
-                        <Eye size={15} />
+                      <button
+                        className="btn btn-ghost"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setInspectRecord(r);
+                        }}
+                        style={{ padding: '4px 8px', borderRadius: '6px' }}
+                        title="View diagnosis"
+                      >
+                        <Eye size={14} />
                       </button>
                     </td>
                   </tr>
@@ -290,8 +285,8 @@ export default function Anomalies() {
           </table>
         </div>
 
-        {/* Pagination */}
-        <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)' }}>
+        {/* Server Pagination */}
+        <div style={{ padding: '0 20px 16px' }}>
           <Pagination
             page={page}
             pages={pages}
@@ -309,12 +304,12 @@ export default function Anomalies() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <AnomalyBadge type={inspectRecord.anomaly_type ?? 'anomaly'} />
-                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem', fontWeight: 700 }}>
+                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem', fontWeight: 600 }}>
                   Diagnostic Anomaly Report
                 </h3>
               </div>
-              <button onClick={() => setInspectRecord(null)} className="btn btn-ghost" style={{ padding: 6, borderRadius: '50%' }}>
-                <X size={18} />
+              <button onClick={() => setInspectRecord(null)} className="modal-close-btn" aria-label="Close">
+                <X size={16} />
               </button>
             </div>
 
@@ -390,8 +385,8 @@ export default function Anomalies() {
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-              <button className="btn btn-primary" onClick={() => setInspectRecord(null)}>
-                Close Report
+              <button className="btn btn-secondary" onClick={() => setInspectRecord(null)}>
+                Dismiss
               </button>
             </div>
           </div>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Search, X, Download, Copy, Check, Filter } from 'lucide-react';
 import { getLogs, LogRecord } from '../services/api';
-import { Skeleton, EmptyState, ErrorBanner, LevelBadge, Pagination, CopyButton } from '../components/ui';
+import { Skeleton, EmptyState, ErrorBanner, LevelBadge, Pagination, CopyButton, SegmentedControl } from '../components/ui';
 import { useDebounce } from '../hooks/useFetch';
 
 export default function LogExplorer() {
@@ -77,19 +77,19 @@ export default function LogExplorer() {
   };
 
   return (
-    <div className="page">
+    <div className="page page-animated">
       <div className="page-header">
-        <h1 className="page-title">Log Record Explorer</h1>
+        <h1 className="page-title">Log Explorer</h1>
         <p className="page-subtitle">
-          Query, filter, and inspect regex-parsed HDFS log records with server-side columnar pagination.
+          Search, filter, and inspect HDFS cluster events with sub-millisecond DuckDB columnar execution.
         </p>
       </div>
 
       {/* Filter and Action Bar */}
       <div className="filter-bar">
-        {/* Apple Pill Search Input */}
+        {/* Apple Search Input */}
         <div className="search-input-wrapper" style={{ flex: 1, maxWidth: 440 }}>
-          <Search size={16} style={{ position: 'absolute', left: 14, color: 'var(--text-muted)' }} />
+          <Search size={15} style={{ position: 'absolute', left: 14, color: 'var(--text-muted)' }} />
           <input
             id="log-search"
             className="search-input"
@@ -118,18 +118,18 @@ export default function LogExplorer() {
           )}
         </div>
 
-        {/* Level Quick Filter Pills */}
-        <div className="segmented-control">
-          {['', 'INFO', 'WARN', 'ERROR', 'FATAL'].map((lvl) => (
-            <button
-              key={lvl}
-              className={`segment-btn ${level === lvl ? 'active' : ''}`}
-              onClick={() => { setLevel(lvl); setPage(1); }}
-            >
-              {lvl === '' ? 'All Severities' : lvl}
-            </button>
-          ))}
-        </div>
+        {/* Level Quick Filter Pills using Apple Segmented Control */}
+        <SegmentedControl
+          value={level}
+          onChange={(lvl) => { setLevel(lvl); setPage(1); }}
+          options={[
+            { value: '', label: 'All Severities' },
+            { value: 'INFO', label: 'INFO' },
+            { value: 'WARN', label: 'WARN' },
+            { value: 'ERROR', label: 'ERROR' },
+            { value: 'FATAL', label: 'FATAL' },
+          ]}
+        />
 
         {/* Component Filter */}
         <div style={{ position: 'relative' }}>
@@ -201,7 +201,7 @@ export default function LogExplorer() {
                 <tr>
                   <td colSpan={6}>
                     <EmptyState
-                      icon="🔍"
+                      icon={<Search size={36} strokeWidth={1.5} color="var(--text-dim)" />}
                       title="No Matching Records"
                       text="No logs match your filter criteria. Try clearing your search or level filters."
                       action={{
