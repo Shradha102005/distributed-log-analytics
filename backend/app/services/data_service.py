@@ -26,11 +26,15 @@ DataPath = Union[Path, str]
 
 # ── Serialisation helpers ──────────────────────────────────────────────────────
 
+import datetime
+
 def _serialize_row(row: dict) -> dict:
     """Convert non-JSON-serializable types (Timestamps, numpy scalars) to plain Python."""
     out = {}
     for k, v in row.items():
-        if isinstance(v, pd.Timestamp):
+        if isinstance(v, (datetime.date, datetime.datetime)):
+            out[k] = v.isoformat()
+        elif isinstance(v, pd.Timestamp):
             out[k] = v.date().isoformat()
         elif isinstance(v, np.integer):
             out[k] = int(v)

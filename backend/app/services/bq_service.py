@@ -10,6 +10,7 @@ import logging
 import os
 from typing import Any, Optional
 
+import datetime
 import pandas as pd
 import numpy as np
 
@@ -26,7 +27,9 @@ def _table(name: str) -> str:
 def _serialize_row(row: dict) -> dict:
     out = {}
     for k, v in row.items():
-        if isinstance(v, pd.Timestamp):
+        if isinstance(v, (datetime.date, datetime.datetime)):
+            out[k] = v.isoformat()
+        elif isinstance(v, pd.Timestamp):
             out[k] = v.date().isoformat()
         elif isinstance(v, np.integer):
             out[k] = int(v)
@@ -134,9 +137,9 @@ def get_component_stats(limit: int = 20, order_by: str = "errors") -> list[dict]
 def get_trends(date_from: Optional[str] = None, date_to: Optional[str] = None) -> list[dict]:
     where = "WHERE 1=1"
     if date_from:
-        where += f" AND date_parsed >= '{date_from}'"
+        where += f" AND CAST(date_parsed AS STRING) >= '{date_from}'"
     if date_to:
-        where += f" AND date_parsed <= '{date_to}'"
+        where += f" AND CAST(date_parsed AS STRING) <= '{date_to}'"
     return _query(f"SELECT * FROM {_table('stats_trends')} {where} ORDER BY date_parsed, hour")
 
 
@@ -145,7 +148,8 @@ def get_events(level: Optional[str] = None, is_rare: Optional[bool] = None, limi
     if level:
         where += f" AND level = '{level.upper()}'"
     if is_rare is not None:
-        where += f" AND is_rare = {'true' if is_rare else 'false'}"
+        rare_val = "true" if is_rare else "false"
+        where += f" AND LOWER(CAST(is_rare AS STRING)) = '{rare_val}'"
     return _query(f"SELECT * FROM {_table('stats_events')} {where} ORDER BY count DESC LIMIT {limit}")
 
 
@@ -161,21 +165,23 @@ def get_logs(
     offset = (page - 1) * page_size
     where = "WHERE 1=1"
     if level:
-        where += f" AND level = '{level.upper()}'"
+        where += f" AND REGEXP_CONTAINS(raw_line, r'\\s{level.upper()}\\s')"
     if component:
         where += f" AND component LIKE '%{component}%'"
     if search:
         where += f" AND content LIKE '%{search}%'"
     if date_from:
-        where += f" AND date_parsed >= '{date_from}'"
+        where += f" AND CAST(date_parsed AS STRING) >= '{date_from}'"
     if date_to:
-        where += f" AND date_parsed <= '{date_to}'"
+        where += f" AND CAST(date_parsed AS STRING) <= '{date_to}'"
 
     count_rows = _query(f"SELECT COUNT(*) as cnt FROM {_table('logs')} {where}")
     total = count_rows[0]["cnt"] if count_rows else 0
 
     data = _query(
-        f"SELECT date_str, time_str, pid, level, component, content, block_id, ts_raw "
+        f"SELECT date_str, time_str, pid, "
+        f"COALESCE(REGEXP_EXTRACT(raw_line, r'\\s(INFO|WARN|WARNING|ERROR|FATAL|DEBUG)\\s'), 'INFO') as level, "
+        f"component, content, block_id, ts_raw "
         f"FROM {_table('logs')} {where} "
         f"ORDER BY ts_raw NULLS LAST "
         f"LIMIT {page_size} OFFSET {offset}"
@@ -200,7 +206,7 @@ def get_anomalies(
 
     if anomaly_type in (None, "spike"):
         results.extend(_query(
-            f"SELECT *, 'spike' as anomaly_type FROM {_table('anomaly_spikes')} WHERE is_spike = true"
+            f"SELECT *, 'spike' as anomaly_type FROM {_table('anomaly_spikes')} WHERE LOWER(CAST(is_spike AS STRING)) IN ('true', '1')"
         ))
 
     if anomaly_type in (None, "block"):
