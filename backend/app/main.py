@@ -1,12 +1,29 @@
 """
 FastAPI application entry point.
 """
+import os
+import json
+import tempfile
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .core.config import settings
 from .api.routes import router
 from .api.pipeline_routes import router as pipeline_router
+
+# ── GCP credentials bootstrap (for Render / cloud deployments) ────────────────
+# On cloud hosts you can't use a file — paste the full JSON as an env var.
+_creds_json = os.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON", "")
+if _creds_json and not os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
+    try:
+        _tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".json", mode="w")
+        _tmp.write(_creds_json)
+        _tmp.close()
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = _tmp.name
+    except Exception as _e:
+        print(f"[WARN] Could not write GCP credentials: {_e}")
+
 
 app = FastAPI(
     title="Distributed Log Analytics API",
