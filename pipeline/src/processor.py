@@ -66,12 +66,11 @@ def create_spark_session(
         .config("spark.sql.parquet.compression.codec", "snappy")
         # Don't write _SUCCESS files
         .config("spark.hadoop.mapreduce.fileoutputcommitter.marksuccessfuljobs", "false")
+        # Default to local filesystem so relative/local paths don't fail when HDFS NameNode is off
+        .config("spark.hadoop.fs.defaultFS", "file:///")
     )
 
-    if hadoop_home:
-        # Add Hadoop JARs so Spark can talk to HDFS
-        hadoop_jars = f"{hadoop_home}/share/hadoop/common/*,{hadoop_home}/share/hadoop/common/lib/*,{hadoop_home}/share/hadoop/hdfs/*,{hadoop_home}/share/hadoop/hdfs/lib/*"
-        builder = builder.config("spark.driver.extraClassPath", hadoop_jars)
+
 
     spark = builder.getOrCreate()
     spark.sparkContext.setLogLevel("WARN")
@@ -280,6 +279,11 @@ def compute_event_patterns(df: DataFrame, top_n: int = 50) -> DataFrame:
 
 def write_parquet(df: DataFrame, path: str, mode: str = "overwrite", partition_by: list = None) -> None:
     """Write DataFrame to Parquet, optionally partitioned."""
+    if not (path.startswith("file://") or path.startswith("hdfs://") or path.startswith("s3a://")):
+        s = str(path).replace("\\", "/")
+        if not s.startswith("/"):
+            s = "/" + s
+        path = f"file://{s}"
     logger.info("Writing Parquet → %s (mode=%s)", path, mode)
     writer = df.write.mode(mode).format("parquet")
     if partition_by:

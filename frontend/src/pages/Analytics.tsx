@@ -1,22 +1,37 @@
+import { useState } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, RadarChart, Radar, PolarGrid,
-  PolarAngleAxis, PolarRadiusAxis, ScatterChart, Scatter
+  PolarAngleAxis, PolarRadiusAxis, Legend
 } from 'recharts';
+import {
+  Layers, Package, Sparkles, Search, Copy, Check,
+  SlidersHorizontal, Filter, AlertCircle
+} from 'lucide-react';
 import { useFetch } from '../hooks/useFetch';
 import { getComponents, getEvents } from '../services/api';
-import { Skeleton, EmptyState, ErrorBanner, LevelBadge } from '../components/ui';
+import { Skeleton, EmptyState, ErrorBanner, LevelBadge, SegmentedControl, CopyButton } from '../components/ui';
 
-const CustomTooltip = ({ active, payload }: any) => {
+interface TooltipPayloadItem {
+  dataKey: string;
+  name: string;
+  value: number;
+  color: string;
+}
+
+const AppleCustomTooltip = ({ active, payload }: { active?: boolean; payload?: TooltipPayloadItem[] }) => {
   if (!active || !payload?.length) return null;
   return (
-    <div style={{
-      background: 'var(--bg-card)', border: '1px solid var(--border)',
-      borderRadius: 8, padding: '12px 16px', fontSize: '0.82rem'
-    }}>
-      {payload.map((p: any) => (
-        <div key={p.dataKey} style={{ color: p.color, marginBottom: 4 }}>
-          {p.name}: <strong>{p.value?.toLocaleString()}</strong>
+    <div className="apple-tooltip">
+      {payload.map((p) => (
+        <div key={p.dataKey} className="apple-tooltip-row">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.color }} />
+            <span style={{ color: 'var(--text-secondary)' }}>{p.name}</span>
+          </div>
+          <strong style={{ color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>
+            {p.value?.toLocaleString()}
+          </strong>
         </div>
       ))}
     </div>
@@ -24,15 +39,28 @@ const CustomTooltip = ({ active, payload }: any) => {
 };
 
 export default function Analytics() {
+  const [componentOrder, setComponentOrder] = useState<'errors' | 'warnings' | 'total'>('errors');
+  const [compSearch, setCompSearch] = useState('');
+  const [eventSearch, setEventSearch] = useState('');
+  const [isRareFilter, setIsRareFilter] = useState<boolean | undefined>(undefined);
+
   const { data: comps, loading: cLoading, error: cError, refetch: cRefetch } = useFetch(
-    () => getComponents({ limit: 15, order_by: 'errors' }), []
-  );
-  const { data: events, loading: eLoading, error: eError } = useFetch(
-    () => getEvents({ limit: 30 }), []
+    () => getComponents({ limit: 20, order_by: componentOrder }),
+    [componentOrder]
   );
 
-  // Shorten component names for chart readability
-  const compChartData = (comps?.data ?? []).map(c => ({
+  const { data: events, loading: eLoading, error: eError } = useFetch(
+    () => getEvents({ limit: 40, is_rare: isRareFilter }),
+    [isRareFilter]
+  );
+
+  // Shorten and filter component names
+  const rawComps = comps?.data ?? [];
+  const filteredComps = compSearch.trim()
+    ? rawComps.filter((c) => c.component.toLowerCase().includes(compSearch.toLowerCase()))
+    : rawComps;
+
+  const compChartData = filteredComps.slice(0, 14).map((c) => ({
     name: c.component.split('.').pop() ?? c.component,
     fullName: c.component,
     errors: c.errors,
@@ -41,114 +69,231 @@ export default function Analytics() {
     total: c.total,
   }));
 
-  const radarData = (comps?.data ?? []).slice(0, 6).map(c => ({
+  const radarData = (comps?.data ?? []).slice(0, 6).map((c) => ({
     subject: c.component.split('.').pop() ?? c.component,
     errors: c.errors,
     warnings: c.warnings,
   }));
 
-  const eventsData = (events?.data ?? []).slice(0, 15).map(e => ({
-    pattern: e.event_pattern.slice(0, 40) + (e.event_pattern.length > 40 ? '…' : ''),
-    count: e.count,
-    level: e.level,
-    is_rare: e.is_rare,
-  }));
+  // Filter events
+  const rawEvents = events?.data ?? [];
+  const filteredEvents = eventSearch.trim()
+    ? rawEvents.filter((e) => e.event_pattern.toLowerCase().includes(eventSearch.toLowerCase()))
+    : rawEvents;
 
   return (
     <div className="page">
       <div className="page-header">
-        <h1 className="page-title">📊 Component & Event Analytics</h1>
-        <p className="page-subtitle">Error distribution by component and frequent event patterns</p>
+        <h1 className="page-title">Component & Event Analytics</h1>
+        <p className="page-subtitle">
+          Decompose failures across HDFS subsystem modules, daemon threads, and frequent regex event clusters.
+        </p>
       </div>
 
-      {/* Component error bar chart */}
-      <div className="card" style={{ marginBottom: 20 }}>
-        <div className="card-header">
-          <span className="card-title">Most Error-Prone Components</span>
+      {/* Component Breakdown Card */}
+      <div className="card" style={{ marginBottom: 26 }}>
+        <div className="card-header" style={{ flexWrap: 'wrap', gap: 14 }}>
+          <div>
+            <div className="card-title">
+              <Package size={18} color="var(--accent-blue)" />
+              <span>Subsystem Component Rankings</span>
+            </div>
+            <div className="card-subtitle">
+              Ranked by error frequency, warning counts, or total message volume
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            {/* Search Component */}
+            <div className="search-input-wrapper">
+              <Search size={14} style={{ position: 'absolute', left: 12, color: 'var(--text-muted)' }} />
+              <input
+                className="search-input"
+                style={{ padding: '8px 14px 8px 32px', minWidth: 200, fontSize: '0.82rem' }}
+                placeholder="Filter component..."
+                value={compSearch}
+                onChange={(e) => setCompSearch(e.target.value)}
+              />
+            </div>
+
+            {/* Segmented Ordering */}
+            <SegmentedControl
+              value={componentOrder}
+              onChange={setComponentOrder}
+              options={[
+                { value: 'errors', label: 'Top Errors' },
+                { value: 'warnings', label: 'Top Warnings' },
+                { value: 'total', label: 'Volume' },
+              ]}
+            />
+          </div>
         </div>
-        {cLoading ? <Skeleton type="chart" /> :
-         cError   ? <ErrorBanner message={cError} onRetry={cRefetch} /> :
-         compChartData.length === 0 ? <EmptyState icon="📦" title="No component data" text="Run the pipeline first." /> : (
-          <div className="chart-container" style={{ height: 350 }}>
+
+        {cLoading ? (
+          <Skeleton type="chart" />
+        ) : cError ? (
+          <ErrorBanner message={cError} onRetry={cRefetch} />
+        ) : compChartData.length === 0 ? (
+          <EmptyState icon="📦" title="No Component Data Found" text="Try clearing your search or running the pipeline." />
+        ) : (
+          <div className="chart-container" style={{ height: 380 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={compChartData} layout="vertical" margin={{ left: 20, right: 20, top: 5, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(99,143,255,0.08)" horizontal={false} />
-                <XAxis type="number" tick={{ fill: '#94a3b8', fontSize: 11 }} />
-                <YAxis type="category" dataKey="name" tick={{ fill: '#94a3b8', fontSize: 11 }} width={160} />
-                <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="errors"   name="Errors"   fill="#ef4444" radius={[0,4,4,0]} />
-                <Bar dataKey="warnings" name="Warnings" fill="#f59e0b" radius={[0,4,4,0]} />
-                <Bar dataKey="infos"    name="Info"     fill="#3b82f6" radius={[0,4,4,0]} />
+              <BarChart data={compChartData} layout="vertical" margin={{ left: 30, right: 25, top: 10, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f5" horizontal={false} />
+                <XAxis
+                  type="number"
+                  tick={{ fill: '#86868b', fontSize: 12 }}
+                  axisLine={{ stroke: '#e5e5ea' }}
+                  tickLine={false}
+                />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  tick={{ fill: '#1d1d1f', fontSize: 12, fontWeight: 500 }}
+                  width={170}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip content={<AppleCustomTooltip />} />
+                <Legend wrapperStyle={{ fontSize: '0.82rem', paddingTop: '10px' }} />
+                <Bar dataKey="errors"   name="Errors"   fill="#ff3b30" radius={[0, 6, 6, 0]} />
+                <Bar dataKey="warnings" name="Warnings" fill="#ff9500" radius={[0, 6, 6, 0]} />
+                <Bar dataKey="infos"    name="Info"     fill="#0071e3" radius={[0, 6, 6, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         )}
       </div>
 
+      {/* Grid: Radar vs Event Patterns */}
       <div className="charts-grid">
-        {/* Radar chart */}
+        {/* Radar Comparison Card */}
         <div className="card">
           <div className="card-header">
-            <span className="card-title">Error vs Warning Radar (Top 6 Components)</span>
+            <div>
+              <div className="card-title">
+                <SlidersHorizontal size={18} color="var(--accent-purple)" />
+                <span>Error vs Warning Radar Profile</span>
+              </div>
+              <div className="card-subtitle">
+                Multi-axis comparison across top active subsystems
+              </div>
+            </div>
           </div>
-          {cLoading ? <Skeleton type="chart" /> :
-           radarData.length === 0 ? <EmptyState icon="🕸️" title="No data" text="Run the pipeline." /> : (
-            <div className="chart-container">
+
+          {cLoading ? (
+            <Skeleton type="chart" />
+          ) : radarData.length === 0 ? (
+            <EmptyState icon="🕸️" title="No Radar Profile" text="Pipeline dataset needed." />
+          ) : (
+            <div className="chart-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <ResponsiveContainer width="100%" height="100%">
                 <RadarChart data={radarData}>
-                  <PolarGrid stroke="rgba(99,143,255,0.12)" />
-                  <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 11 }} />
-                  <PolarRadiusAxis tick={{ fill: '#4a5568', fontSize: 9 }} />
-                  <Radar name="Errors" dataKey="errors" stroke="#ef4444" fill="#ef4444" fillOpacity={0.2} />
-                  <Radar name="Warnings" dataKey="warnings" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.2} />
-                  <Tooltip content={<CustomTooltip />} />
+                  <PolarGrid stroke="#e5e5ea" />
+                  <PolarAngleAxis dataKey="subject" tick={{ fill: '#424245', fontSize: 11, fontWeight: 500 }} />
+                  <PolarRadiusAxis stroke="#d2d2d7" angle={30} domain={[0, 'auto']} />
+                  <Radar name="Errors" dataKey="errors" stroke="#ff3b30" fill="#ff3b30" fillOpacity={0.25} />
+                  <Radar name="Warnings" dataKey="warnings" stroke="#ff9500" fill="#ff9500" fillOpacity={0.2} />
+                  <Legend wrapperStyle={{ fontSize: '0.8rem' }} />
+                  <Tooltip />
                 </RadarChart>
               </ResponsiveContainer>
             </div>
           )}
         </div>
 
-        {/* Event frequency table */}
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <div className="card-header" style={{ padding: '20px 24px 0' }}>
-            <span className="card-title">Top Event Patterns</span>
+        {/* Frequent and Rare Event Patterns */}
+        <div className="card">
+          <div className="card-header" style={{ flexWrap: 'wrap', gap: 10 }}>
+            <div>
+              <div className="card-title">
+                <Sparkles size={18} color="var(--accent-blue)" />
+                <span>Event Pattern Clusters</span>
+              </div>
+              <div className="card-subtitle">
+                Template signatures extracted by Spark regex tokenizer
+              </div>
+            </div>
+
+            {/* Rare toggle */}
+            <SegmentedControl
+              value={isRareFilter === undefined ? 'all' : isRareFilter ? 'rare' : 'frequent'}
+              onChange={(val) => {
+                if (val === 'all') setIsRareFilter(undefined);
+                else if (val === 'rare') setIsRareFilter(true);
+                else setIsRareFilter(false);
+              }}
+              options={[
+                { value: 'all', label: 'All Patterns' },
+                { value: 'rare', label: 'Rare Only' },
+                { value: 'frequent', label: 'Frequent' },
+              ]}
+            />
           </div>
+
+          {/* Quick Pattern Search */}
+          <div style={{ marginBottom: 16 }}>
+            <div className="search-input-wrapper" style={{ width: '100%' }}>
+              <Search size={14} style={{ position: 'absolute', left: 12, color: 'var(--text-muted)' }} />
+              <input
+                className="search-input"
+                style={{ width: '100%', padding: '8px 14px 8px 32px', fontSize: '0.82rem' }}
+                placeholder="Search template patterns..."
+                value={eventSearch}
+                onChange={(e) => setEventSearch(e.target.value)}
+              />
+            </div>
+          </div>
+
           {eLoading ? (
-            <div style={{ padding: 20 }}><Skeleton type="text" count={8} /></div>
-          ) : eError ? (
-            <div style={{ padding: 20 }}><ErrorBanner message={eError} /></div>
-          ) : eventsData.length === 0 ? (
-            <EmptyState icon="🎯" title="No event data" text="Run the pipeline." />
+            <Skeleton type="chart" />
+          ) : filteredEvents.length === 0 ? (
+            <EmptyState icon="⚡" title="No Patterns Found" text="No event templates match your filter." />
           ) : (
-            <div className="table-wrapper">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Event Pattern</th>
-                    <th>Level</th>
-                    <th>Count</th>
-                    <th>Rare?</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {eventsData.map((ev, i) => (
-                    <tr key={i}>
-                      <td style={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.82rem' }}>
-                        {ev.pattern}
-                      </td>
-                      <td><LevelBadge level={ev.level} /></td>
-                      <td style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
-                        {ev.count.toLocaleString()}
-                      </td>
-                      <td>
-                        {ev.is_rare === 'true'
-                          ? <span className="badge badge-error">rare</span>
-                          : <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>common</span>}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div style={{ maxHeight: 290, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, paddingRight: 4 }}>
+              {filteredEvents.map((ev, i) => (
+                <div
+                  key={i}
+                  style={{
+                    padding: '12px 14px',
+                    background: 'var(--bg-surface)',
+                    borderRadius: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 12,
+                    transition: 'var(--transition)',
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                      <LevelBadge level={ev.level} />
+                      {ev.is_rare === 'true' && (
+                        <span className="badge" style={{ background: 'var(--accent-purple-tint)', color: 'var(--accent-purple-text)' }}>
+                          Rare Template
+                        </span>
+                      )}
+                      <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                        <strong>{ev.count.toLocaleString()}</strong> events ({((ev.fraction || 0) * 100).toFixed(2)}%)
+                      </span>
+                    </div>
+                    <div
+                      className="mono"
+                      style={{
+                        fontSize: '0.8rem',
+                        color: 'var(--text-primary)',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                      title={ev.event_pattern}
+                    >
+                      {ev.event_pattern}
+                    </div>
+                  </div>
+                  <CopyButton text={ev.event_pattern} />
+                </div>
+              ))}
             </div>
           )}
         </div>

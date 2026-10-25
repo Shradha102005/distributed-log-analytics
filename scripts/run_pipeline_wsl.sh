@@ -1,20 +1,18 @@
 #!/bin/bash
-# Verify Spark installation and run the pipeline via WSL
-source /home/hadoop/.bashrc 2>/dev/null || true
-export SPARK_HOME=/usr/local/spark
-export PATH=$PATH:$SPARK_HOME/bin:$SPARK_HOME/sbin
-export PYTHONPATH=$SPARK_HOME/python:$SPARK_HOME/python/lib/py4j-0.10.9.7-src.zip:$PYTHONPATH
-export PYSPARK_PYTHON=python3
+set -e
+
+# Setup environment
 export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+export SPARK_HOME=/usr/local/spark
+export PATH=/home/hadoop/spark-env/bin:$SPARK_HOME/bin:$SPARK_HOME/sbin:$JAVA_HOME/bin:$PATH
+export PYTHONPATH=$SPARK_HOME/python:$SPARK_HOME/python/lib/py4j-0.10.9.7-src.zip:$PYTHONPATH
+export PYSPARK_PYTHON=/home/hadoop/spark-env/bin/python
+export PYSPARK_DRIVER_PYTHON=/home/hadoop/spark-env/bin/python
 
-echo "=== Spark version ==="
-spark-submit --version 2>&1 | head -4
+echo "=== Running Distributed Log Analytics Pipeline in WSL ==="
+echo "User: $(whoami)"
+echo "Python: $(/home/hadoop/spark-env/bin/python --version)"
+echo "Spark Home: $SPARK_HOME"
+echo "=========================================================="
 
-echo ""
-echo "=== Python + PySpark check ==="
-python3 -c "import pyspark; print('PySpark version:', pyspark.__version__)"
-
-echo ""
-echo "=== Starting pipeline (sample mode) ==="
-cd /mnt/d/BDA_CC/distributed-log-analytics
-python3 pipeline/run_pipeline.py --sample --no-download 2>&1
+/home/hadoop/spark-env/bin/python /mnt/d/BDA_CC/distributed-log-analytics/pipeline/run_pipeline.py "$@"

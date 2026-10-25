@@ -47,6 +47,13 @@ logging.basicConfig(
 logger = logging.getLogger("run_pipeline")
 
 
+def _to_spark_uri(p) -> str:
+    s = str(p).replace("\\", "/")
+    if not s.startswith("/"):
+        s = "/" + s
+    return f"file://{s}"
+
+
 def parse_args():
     p = argparse.ArgumentParser(description="Log Analytics Pipeline")
     mode = p.add_mutually_exclusive_group()
@@ -102,7 +109,7 @@ def main():
     logger.info("Total lines in full dataset: %d", total_lines)
 
     # ── Stage 2: Optionally upload to HDFS ───────────────────────────────────
-    spark_input_path = f"file:///{str(log_path).replace(chr(92), '/')}"
+    spark_input_path = _to_spark_uri(log_path)
 
     if args.use_hdfs:
         logger.info("── Stage 2a: Upload to HDFS ──")
@@ -143,7 +150,7 @@ def main():
         logger.info("── Stage 4: Anomaly detection ──")
         label_csv_spark_path = None
         if label_path:
-            label_csv_spark_path = f"file:///{str(label_path).replace(chr(92), '/')}"
+            label_csv_spark_path = _to_spark_uri(label_path)
 
         anomaly_result = anomaly.run_anomaly_pipeline(
             spark=spark,

@@ -225,12 +225,23 @@ def run_anomaly_pipeline(
     t0 = time.time()
     logger.info("=== Anomaly pipeline start ===")
 
-    from .processor import write_parquet
+    try:
+        from .processor import write_parquet
+    except ImportError:
+        from processor import write_parquet
+
+    def _to_uri(p: str) -> str:
+        if not (p.startswith("file://") or p.startswith("hdfs://") or p.startswith("s3a://")):
+            s = str(p).replace("\\", "/")
+            if not s.startswith("/"):
+                s = "/" + s
+            return f"file://{s}"
+        return p
 
     # Load pre-computed Parquet data
-    logs_df   = spark.read.parquet(logs_parquet)
-    trends_df = spark.read.parquet(trends_parquet)
-    events_df = spark.read.parquet(events_parquet)
+    logs_df   = spark.read.parquet(_to_uri(logs_parquet))
+    trends_df = spark.read.parquet(_to_uri(trends_parquet))
+    events_df = spark.read.parquet(_to_uri(events_parquet))
 
     # 1. Error spikes
     spikes_df = detect_error_spikes(trends_df, z_threshold=z_threshold)

@@ -11,8 +11,29 @@ from typing import Any, Optional
 
 import duckdb
 import pyarrow.parquet as pq
+import pandas as pd
+import numpy as np
 
 logger = logging.getLogger(__name__)
+
+
+def _serialize_row(row: dict) -> dict:
+    """Convert non-JSON-serializable types (Timestamps, numpy scalars) to plain Python types."""
+    out = {}
+    for k, v in row.items():
+        if isinstance(v, (pd.Timestamp,)):
+            out[k] = v.date().isoformat()  # "2008-11-09"
+        elif isinstance(v, (np.integer,)):
+            out[k] = int(v)
+        elif isinstance(v, (np.floating,)):
+            out[k] = float(v)
+        elif isinstance(v, (np.bool_,)):
+            out[k] = bool(v)
+        elif pd.isna(v) if not isinstance(v, (str, list, dict)) else False:
+            out[k] = None
+        else:
+            out[k] = v
+    return out
 
 
 def _parquet_exists(path: Path) -> bool:
@@ -30,8 +51,8 @@ def _parquet_exists(path: Path) -> bool:
 def _glob_pattern(path: Path) -> str:
     """Return a DuckDB-compatible glob for a Parquet dataset directory."""
     if path.is_dir():
-        return str(path / "**" / "*.parquet")
-    return str(path)
+        return str(path / "**" / "*.parquet").replace("\\", "/")
+    return str(path).replace("\\", "/")
 
 
 def query_parquet(
@@ -51,7 +72,7 @@ def query_parquet(
     conn = duckdb.connect(":memory:")
     try:
         result = conn.execute(sql, params or []).fetchdf()
-        return result.to_dict(orient="records")
+        return [_serialize_row(r) for r in result.to_dict(orient="records")]
     except Exception as exc:
         logger.error("DuckDB query failed on %s: %s\nSQL: %s", path, exc, sql)
         return []

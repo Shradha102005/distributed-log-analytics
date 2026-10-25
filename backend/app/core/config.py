@@ -19,12 +19,27 @@ class Settings:
         "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173"
     ).split(",")
 
-    # Parquet paths (adjust to Windows-style paths when running on Windows)
-    _BASE = _ROOT / "outputs"
+    # Check parent workspace outputs (e.g. D:\BDA_CC\outputs) or project outputs
+    _WORKSPACE_OUTPUTS = Path(__file__).resolve().parents[4] / "outputs"
+    _PROJECT_OUTPUTS = _ROOT / "outputs"
+    _BASE = _WORKSPACE_OUTPUTS if (_WORKSPACE_OUTPUTS / "parquet").exists() else _PROJECT_OUTPUTS
     PARQUET_LOGS:      Path = Path(os.getenv("PARQUET_LOGS",      str(_BASE / "parquet" / "logs")))
     PARQUET_STATS:     Path = Path(os.getenv("PARQUET_STATS",     str(_BASE / "parquet" / "stats")))
-    PARQUET_ANOMALIES: Path = Path(os.getenv("PARQUET_ANOMALIES", str(_BASE / "parquet" / "anomalies")))
-    PARQUET_METRICS:   Path = Path(os.getenv("PARQUET_METRICS",   str(_BASE / "parquet" / "metrics")))
+    @property
+    def PARQUET_ANOMALIES(self) -> Path:
+        custom = os.getenv("PARQUET_ANOMALIES")
+        if custom:
+            return Path(custom)
+        p1 = self._BASE / "parquet" / "anomalies"
+        return p1 if p1.exists() else (self._BASE / "anomalies")
+
+    @property
+    def PARQUET_METRICS(self) -> Path:
+        custom = os.getenv("PARQUET_METRICS")
+        if custom:
+            return Path(custom)
+        p1 = self._BASE / "parquet" / "metrics"
+        return p1 if p1.exists() else (self._BASE / "metrics")
 
     # Derived Parquet sub-paths
     @property

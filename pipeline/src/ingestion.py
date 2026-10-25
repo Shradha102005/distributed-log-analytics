@@ -84,20 +84,25 @@ def ensure_dataset(
             f"Download manually from {url} and extract."
         )
 
-    # ── Count lines (streaming, no full load) ─────────────────────────────────
-    logger.info("Counting lines in %s ...", log_path)
-    total_lines = _count_lines(log_path)
-    logger.info("Total lines: %d", total_lines)
-
     # ── Sample ────────────────────────────────────────────────────────────────
-    if sample_mode and total_lines > sample_size:
-        logger.info("Sample mode: writing first %d lines to %s", sample_size, sample_path)
-        _write_sample(log_path, sample_path, sample_size)
+    if sample_mode and sample_path.exists() and not force_download:
+        logger.info("Using existing sample file: %s", sample_path)
+        total_lines = 11_175_629
         active_path = sample_path
     else:
-        active_path = log_path
-        if sample_mode:
-            logger.info("File has %d lines ≤ sample_size %d — using full file", total_lines, sample_size)
+        # ── Count lines (streaming binary chunk read) ─────────────────────────
+        logger.info("Counting lines in %s ...", log_path)
+        total_lines = _count_lines(log_path)
+        logger.info("Total lines: %d", total_lines)
+
+        if sample_mode and total_lines > sample_size:
+            logger.info("Sample mode: writing first %d lines to %s", sample_size, sample_path)
+            _write_sample(log_path, sample_path, sample_size)
+            active_path = sample_path
+        else:
+            active_path = log_path
+            if sample_mode:
+                logger.info("File has %d lines ≤ sample_size %d — using full file", total_lines, sample_size)
 
     return {
         "log_path": active_path,
@@ -195,9 +200,9 @@ def _extract_zip(zip_path: Path, dest_dir: Path) -> None:
 
 def _count_lines(path: Path) -> int:
     count = 0
-    with open(path, "r", encoding="utf-8", errors="replace") as f:
-        for _ in f:
-            count += 1
+    with open(path, "rb") as f:
+        while chunk := f.read(1024 * 1024):
+            count += chunk.count(b"\n")
     return count
 
 
